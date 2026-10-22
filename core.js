@@ -35,10 +35,10 @@ S.retryWS=function(){var s=this;if(s.stopped)return;clearTimeout(s.wst);s.wsTry=
 S.revive=function(force){if(this.stopped)return;if(force||!this.es||this.es.readyState==2)this.openES();if(!this.ws||this.ws.readyState>1)this.openWS()};
 function zip(s){if(s.length<3000||!window.CompressionStream)return Promise.resolve(s);var cs=new Blob([s]).stream().pipeThrough(new CompressionStream('deflate-raw'));return new Response(cs).arrayBuffer().then(function(b){var u=new Uint8Array(b),x='';for(var i=0;i<u.length;i++)x+=String.fromCharCode(u[i]);return JSON.stringify({z:btoa(x)})}).catch(function(){return s})}
 function unzip(m){if(!m||!m.z)return Promise.resolve(m);var b=Uint8Array.from(atob(m.z),function(c){return c.charCodeAt(0)});return new Response(new Blob([b]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text().then(JSON.parse)}
-S.send=function(to,m,topic){m.mid=CB.rnd(8);m.f=this.id;m.tab=this.tab;m.t=Date.now();var b=JSON.stringify(m),url='https://ntfy.sh/'+(topic||this.topic(to));
+S.send=function(to,m,topic){m.mid=CB.rnd(8);m.f=this.id;m.tab=this.tab;m.t=Date.now();CB.log.push('tx '+m.k+' '+Math.round(performance.now()));var b=JSON.stringify(m),url='https://ntfy.sh/'+(topic||this.topic(to));
  zip(b).then(function(z){return fetch(url,{method:'POST',body:z})}).catch(function(){});
  if(!topic&&this.ws&&this.ws.readyState==1&&this.up.pj)try{this.ws.send(JSON.stringify({type:'OFFER',dst:this.P+to,payload:{cb:m}}))}catch(e){}};
-S.got=function(m){if(!m||!m.mid||this.seen.has(m.mid))return;this.seen.add(m.mid);if(m.f==this.id&&m.tab==this.tab)return;if(m.k=='offer'&&Date.now()-m.t>15000)return;this.on(m)};
+CB.log=[];S.got=function(m){if(m&&m.k)CB.log.push('rx '+m.k+' '+(m.f||'')+' '+Math.round(performance.now()));if(!m||!m.mid||this.seen.has(m.mid))return;this.seen.add(m.mid);if(m.f==this.id&&m.tab==this.tab)return;if(m.k=='offer'&&Date.now()-m.t>15000)return;this.on(m)};
 /* ---- one link to one other phone: a single WebRTC line with audio and a data channel ---- */
 CB.Link=function(sig,remote,opt){this.sig=sig;this.r=remote;this.opt=opt||{};this.off=sig.id<remote;this.open=false;this.want=false;this.att=0;this.lastTry=0;this.q={};this.since=Date.now()};
 var L=CB.Link.prototype;
@@ -50,7 +50,7 @@ L.newPc=function(sid,relay){var k=this;k.close();var pc=new RTCPeerConnection(CB
  dc.onmessage=function(e){var m;try{m=JSON.parse(e.data)}catch(x){return}if(m.k=='hi'){k.rtab=m.tab;k.rname=m.name}k.opt.onmsg&&k.opt.onmsg(k,m)};
  pc.onicecandidate=function(e){if(k.pc!=pc||!e.candidate)return;(k.cq=k.cq||[]).push(e.candidate.toJSON());if(!k.ct)k.ct=setTimeout(function(){k.ct=null;var c=k.cq;k.cq=[];if(c.length&&k.pc==pc)k.sig.send(k.r,{k:'ice',sid:sid,c:c})},150)};
  pc.ontrack=function(e){if(k.pc!=pc)return;k.stream=(e.streams&&e.streams[0])||new MediaStream([e.track]);k.opt.ontrack&&k.opt.ontrack(k)};
- pc.onconnectionstatechange=function(){if(k.pc!=pc)return;var s=pc.connectionState;
+ pc.onconnectionstatechange=function(){if(k.pc!=pc)return;var s=pc.connectionState;CB.log.push('pc '+s+' dc='+(k.dc&&k.dc.readyState)+' sctp='+(pc.sctp&&pc.sctp.state)+' app='+/m=application/.test((pc.remoteDescription||{}).sdp||'')+' '+Math.round(performance.now()));
   if(s=='connected'){clearTimeout(k.ft);k.route()}else if(s=='failed')k.fix();
   else if(s=='disconnected'){clearTimeout(k.ft);k.ft=setTimeout(function(){if(k.pc==pc&&pc.connectionState!='connected')k.fix()},2500)}};
  return pc};
@@ -68,10 +68,10 @@ L.onAnswer=function(m){var k=this,pc=k.pc;if(!pc||k.sid!=m.sid||pc.signalingStat
 L.onIce=function(m){var k=this;if(k.pc&&k.sid==m.sid&&k.pc.remoteDescription){m.c.forEach(function(c){k.pc.addIceCandidate(c).catch(function(){})})}else{var a=k.q[m.sid]=k.q[m.sid]||[];a.push.apply(a,m.c)}};
 L.flush=function(sid){var k=this,c=k.q[sid]||[];k.q={};c.forEach(function(x){k.pc.addIceCandidate(x).catch(function(){})})};
 L.onMsg=function(m){var k=this;if(m.k=='offer')k.onOffer(m);else if(m.k=='answer')k.onAnswer(m);else if(m.k=='ice')k.onIce(m);else if(m.k=='kick'){if(k.off)k.fix()}
- else if(m.k=='hello'){k.want=true;if(!k.off){k.sig.send(k.r,{k:'hello'});return}if(k.open&&m.tab==k.rtab)return;if(!k.pc||k.open||Date.now()-k.lastTry>1500)k.start()}};
+ else if(m.k=='hello'){k.want=true;var bz=k.pc&&!k.open&&/new|checking|connecting|connected/.test(k.pc.connectionState)&&Date.now()-k.lastTry<9000;if(!k.off){k.sig.send(k.r,{k:'hello'});return}if(k.open&&m.tab==k.rtab)return;if(bz)return;if(!k.pc||k.open||Date.now()-k.lastTry>1500)k.start()}};
 L.tick=function(){var k=this;if(!k.want||k.open)return;var age=Date.now()-k.lastTry;
- if(k.off){if(k.pc&&k.pc.connectionState=='connecting'&&age<9000)return;if(!k.pc||age>(k.att<2?3500:5000))k.start(k.att>=2&&k.att%2==0)}
- else if(age>3000){k.lastTry=Date.now();k.att++;k.sig.send(k.r,{k:'hello'})}};
+ if(k.off){if(k.pc&&/new|connecting|connected/.test(k.pc.connectionState)&&age<9000&&k.pc.signalingState!='closed'&&(k.pc.connectionState!='new'||age<4000))return;if(!k.pc||age>(k.att<2?3500:5000))k.start(k.att>=2&&k.att%2==0)}
+ else if(age>(k.pc&&/new|connecting|connected/.test(k.pc.connectionState)?9000:3000)){k.lastTry=Date.now();k.att++;k.sig.send(k.r,{k:'hello'})}};
 L.reset=function(){this.close();this.att=0;this.lastTry=0;this.since=Date.now();this.tick()};
 L.tx=function(m){try{this.dc&&this.dc.readyState=='open'&&this.dc.send(JSON.stringify(m))}catch(e){}};
 L.setTrack=function(t){if(this.tr)this.tr.sender.replaceTrack(t).catch(function(){})};
