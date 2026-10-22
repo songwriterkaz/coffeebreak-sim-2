@@ -34,7 +34,7 @@ function ontrack(L){if(cl==L&&cs=='on')attach()}
 function onSig(m){if(m.k=='take'){if(m.f==myId&&m.t>sig.start0)takeOver();return}var a=adOf(m.f);if(a==myAddr)return;var L=link(a);if(m.k=='hello'||m.k=='offer')save(a);L.onMsg(m)}
 function onmsg(L,m){var who=cname(L.a);
  if(m.k=='call'){if(cs=='on'&&cl==L)return;if(paused){L.tx({k:'paused'});return}if(cs&&cl!=L){L.tx({k:'busy'});return}cl=L;target=L.a;fill();
-  if(MODE=='sim'||m.resume)answer(false);else{cs='in';ring(true);ui()}}
+  if(MODE=='sim'||m.resume)answer(false);else{cs='in';ring(true);notify(who);ui()}}
  else if(m.k=='answer'){if(cs=='out'&&cl==L){cbStat.callMs=Math.round(performance.now()-cbStat.tCall);onCall()}}
  else if(m.k=='bye')(cl==L)&&endCall('Call ended');
  else if(m.k=='decline')(cl==L)&&endCall(who+' can\'t talk now');
@@ -43,7 +43,7 @@ function onmsg(L,m){var who=cname(L.a);
 /* ---- calls ---- */
 function answer(gesture){ring(false);cl.tx({k:'answer'});onCall();mic(gesture).catch(function(){needTap(true)})}
 function onCall(){cs='on';rhold=false;clearTimeout(answer.t);attach();liveMic();ui()}
-function attach(){var a=$('#au');if(cl&&cl.stream&&a.srcObject!==cl.stream)a.srcObject=cl.stream;a.muted=paused;a.volume=spk?1:0.35;var p=a.play();if(p)p.catch(function(){needTap(true)})}
+function attach(){var a=$('#au');CB.setSink(a);if(cl&&cl.stream&&a.srcObject!==cl.stream)a.srcObject=cl.stream;a.muted=paused;a.volume=spk?1:0.35;var p=a.play();if(p)p.catch(function(){needTap(true)})}
 function endCall(msg){if(!cs)return;cs=null;cl=null;pend=false;rhold=false;ring(false);clearTimeout(answer.t);var a=$('#au');a.muted=true;liveMic();needTap(false);flash(msg||'Call ended')}
 function hang(){if(cl)cl.tx({k:cs=='in'?'decline':'bye'});endCall('Call ended')}
 $('#call').onclick=function(){unlock();if(cs){hang();return}target=target||$('#who').value;if(!target){flash('Share your link first');return}if(paused){flash('Turn off Pause to call');return}
@@ -54,7 +54,7 @@ $('#decline').onclick=function(){if(cs=='in')hang()};
 $('#ans').onclick=function(){unlock();mic(true).then(function(){needTap(false);if(cs=='on')attach();flash('Phone is on')}).catch(function(){flash('Allow the microphone in settings')});if(cs=='on')attach()};
 function needTap(on){$('#ans').classList.toggle('hide',!on)}
 var micP;function mic(gesture){if(CB.track&&CB.track.readyState=='live')return Promise.resolve(CB.track);if(micP)return micP;if(!gesture&&!granted)return Promise.reject(new Error('no'));
- micP=navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}}).then(function(s){micP=null;var t=s.getAudioTracks()[0];CB.track=t;granted=true;
+ micP=navigator.mediaDevices.getUserMedia({audio:CB.micC()}).then(function(s){micP=null;var t=s.getAudioTracks()[0];CB.track=t;granted=true;
   links.forEach(function(L){L.setTrack(t);if(L.open&&!L.tr)L.reset()});liveMic();needTap(false);return t},function(e){micP=null;throw e});return micP}
 function liveMic(){if(CB.track)CB.track.enabled=cs=='on'&&!muted&&!paused}
 if(q.get('t')!='nomic'&&navigator.permissions&&navigator.permissions.query)navigator.permissions.query({name:'microphone'}).then(function(p){if(p.state=='granted'){granted=true;mic(false).catch(function(){})}}).catch(function(){});
@@ -105,7 +105,7 @@ $('#nm').onkeydown=function(e){if(e.key=='Enter')$('#start').click()};
 function shareIt(o,fb){if(navigator.share)navigator.share(o).catch(function(){});else{(navigator.clipboard?navigator.clipboard.writeText(fb):Promise.reject()).then(function(){flash('Link copied')}).catch(function(){prompt('Copy this',fb)})}}
 $('#share').onclick=function(){var u=BASE+'?call='+myAddr;shareIt({title:'Call me',url:u},u)};
 /* ---- More ---- */
-var panels=['pContacts','pAdd','pScan','pImp','pSend'];
+var panels=['pContacts','pAdd','pScan','pImp','pSend','pDev'];
 function show(id){panels.forEach(function(p){$('#'+p).classList.toggle('hide',p!=id||!$('#'+p).classList.contains('hide'))});if(id!='pScan')stopScan()}
 $('#more').onclick=function(){var b=$('#morebox');b.classList.toggle('hide');this.textContent=b.classList.contains('hide')?'More':'Close'};
 $('#bContacts').onclick=function(){drawList();show('pContacts')};
@@ -146,5 +146,11 @@ $('#bSave').onclick=function(){if(!live().length){flash('No contacts yet');retur
 $('#bSend').onclick=function(){show('pSend')};
 $('#sendlink').onclick=function(){var Lst=live().map(function(c){return {n:c.n,a:c.a,tel:c.tel}});var u=BASE+'#c='+btoa(unescape(encodeURIComponent(JSON.stringify(Lst))));shareIt({title:'My Coffeebreak contacts',url:u},u)};
 $('#sendfile').onclick=function(){var f=vcfFile();if(navigator.canShare&&navigator.canShare({files:[f]}))navigator.share({files:[f],title:'My contacts'}).catch(function(){});else download(f)};
+$('#bDev').onclick=function(){show('pDev');mic(true).catch(function(){}).then(function(){CB.fillDev(function(old){mic(true).then(function(){if(old)old.stop()}).catch(function(){CB.track=old})})})};
+CB.hasCam(function(y){if(!y)$('#bScan').classList.add('hide')});
+CB.keys(function(){if(taken)return;if(cs=='in')$('#answer').click();else $('#call').click()},function(){$('#mute').click()});
+function askNote(){if(MODE=='phone'&&window.Notification&&Notification.permission=='default')try{Notification.requestPermission()}catch(e){}}
+document.addEventListener('click',function n(){document.removeEventListener('click',n,true);askNote()},true);
+function notify(who){try{if(window.Notification&&Notification.permission=='granted'&&(document.hidden||!document.hasFocus())){var n=new Notification(who+' is calling',{body:'Open Coffeebreak Phone 2 to answer',icon:'icon.png',tag:'cbcall',requireInteraction:true});n.onclick=function(){window.focus();n.close()}}}catch(e){}}
 window.cbDebug=function(){var L=target&&links.get(target);return {cs:cs,open:!!(L&&L.open),via:L&&L.via,ntfy:sig&&sig.up.ntfy,pj:sig&&sig.up.pj,taken:taken,att:L&&L.att,me:myAddr,st:$('#st').textContent}};
 })();

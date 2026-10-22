@@ -20,6 +20,9 @@ button,input,select{font:inherit;border-radius:18px;border:0}input{padding:14px;
 video{width:100%;border-radius:14px;background:#000}.note{font-size:16px;opacity:.85}
 .hide{display:none!important}small{font-size:14px;opacity:.8}footer{font-size:12px;opacity:.75;margin-top:auto;padding-top:10px}
 #taken{display:flex;flex-direction:column;gap:16px;padding-top:30px}
+@media (min-width:1000px){body{font-size:24px}main{max-width:760px;background:#fff0f6;border-radius:28px;margin:24px auto;box-shadow:0 10px 40px #d6457a33;padding:24px 40px;min-height:auto}
+#qr{width:236px!important;height:236px!important;padding:8px}#qr img,#qr canvas{width:220px!important;height:220px!important}.kb{display:block!important}}
+.kb{display:none;font-size:15px;opacity:.7}.dev select{padding:10px;border-radius:14px;width:100%}
 </style></head><body><main>
 <header><img src="logo.png" alt="Coffeebreak"><h1>Coffeebreak SIM 2</h1></header>
 <section id="setup" class="hide"><p>Your name</p><input id="nm" maxlength="20" autocomplete="off"><p><button class="big" id="start">Start</button></p></section>
@@ -31,7 +34,7 @@ video{width:100%;border-radius:14px;background:#000}.note{font-size:16px;opacity
 <div id="inbox" class="hide" style="display:flex;flex-direction:column;gap:10px"><button class="big" id="answer">Answer</button><button class="big" id="decline">Decline</button></div>
 <button class="big" id="call">CALL</button>
 <div class="row"><button class="sm" id="mute">Mute</button><button class="sm" id="pause">Pause</button><button class="sm" id="spk">Speaker on</button></div>
-<div class="note">Keep this open to get calls</div>
+<div class="note">Keep this open to get calls</div><div class="kb">Keyboard: Space to call, answer or end. M to mute.</div>
 <div id="qr"></div><small>Scan to call me</small>
 <button class="big" id="share">Share my link</button>
 <button class="big" id="more">More</button>
@@ -39,19 +42,19 @@ video{width:100%;border-radius:14px;background:#000}.note{font-size:16px;opacity
 <div class="grid">
 <button class="ic" id="bContacts"><b>👥</b>Contacts</button><button class="ic" id="bAdd"><b>➕</b>Add contact</button>
 <button class="ic" id="bScan"><b>📷</b>Scan QR</button><button class="ic" id="bImp"><b>📥</b>Import contacts</button>
-<button class="ic" id="bSave"><b>💾</b>Save contacts file</button><button class="ic" id="bSend"><b>📤</b>Send my contacts</button>
+<button class="ic" id="bSave"><b>💾</b>Save contacts file</button><button class="ic" id="bSend"><b>📤</b>Send my contacts</button><button class="ic" id="bDev"><b>🎙️</b>Mic and speakers</button>
 </div>
 <div id="pContacts" class="panel hide"><h2>Contacts</h2><div id="clist"></div><small>People who call you are saved here.</small></div>
 <div id="pAdd" class="panel hide"><h2 id="addh">Add contact</h2><input id="cn" placeholder="Name" maxlength="30"><input id="cs" placeholder="Their link"><input id="ct" placeholder="Phone number (optional)" inputmode="tel"><button class="big" id="csave">Save</button></div>
 <div id="pScan" class="panel hide"><h2>Scan their QR</h2><video id="cam" playsinline muted></video><button class="big" id="scanstop">Stop</button></div>
 <div id="pImp" class="panel hide"><h2>Import contacts</h2><button class="big" id="pick">From this phone</button><button class="big" id="vcfbtn">From a contacts file (.vcf)</button><input type="file" id="vcf" accept=".vcf,text/vcard,text/x-vcard" class="hide"><small>iPhone: in Contacts, share a contact, save to Files, then pick it here.</small></div>
-<div id="pSend" class="panel hide"><h2>Send my contacts</h2><button class="big" id="sendlink">Send as link</button><button class="big" id="sendfile">Send as file</button></div>
+<div id="pDev" class="panel hide dev"><h2>Mic and speakers</h2><div>Microphone</div><select id="micsel"></select><div id="spkl">Speakers</div><select id="spksel"></select></div><div id="pSend" class="panel hide"><h2>Send my contacts</h2><button class="big" id="sendlink">Send as link</button><button class="big" id="sendfile">Send as file</button></div>
 </div>
 </section>
 <audio id="au" autoplay playsinline muted></audio>
-<footer>© Karen O'Brien (Coffeebreak). Karen O'Brien keeps all rights to this app, its design, name and logo. You may resell a physical phone you bought, but you may not copy this app or make your own version of it.<br><span style="opacity:.6">v1</span></footer>
+<footer>© Karen O'Brien (Coffeebreak). Karen O'Brien keeps all rights to this app, its design, name and logo. You may resell a physical phone you bought, but you may not copy this app or make your own version of it.<br><span style="opacity:.6">v2</span></footer>
 </main>
 <script>window.CB_MODE='sim';window.CB_P='cbsim2-';</script>
-<script src="core.js?v=1"></script><script>CB.V='1'</script><script src="phone.js?v=1"></script>
+<script src="core.js?v=2"></script><script>CB.V='2'</script><script src="phone.js?v=2"></script>
 <script src="qrcode.min.js" defer></script>
 </body></html>

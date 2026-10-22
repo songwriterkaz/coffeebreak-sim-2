@@ -76,6 +76,17 @@ L.setTrack=function(t){if(this.tr)this.tr.sender.replaceTrack(t).catch(function(
 L.bitrate=function(){try{var s=this.tr&&this.tr.sender;if(!s)return;var p=s.getParameters();if(!p.encodings||!p.encodings.length)p.encodings=[{}];p.encodings[0].maxBitrate=64000;s.setParameters(p).catch(function(){})}catch(e){}};
 L.route=function(){var k=this,pc=k.pc;if(!pc)return;pc.getStats().then(function(st){var pair,loc={};st.forEach(function(r){if(r.type=='transport'&&r.selectedCandidatePairId)pair=st.get(r.selectedCandidatePairId);if(r.type=='local-candidate')loc[r.id]=r});
  if(pair&&loc[pair.localCandidateId]){k.via=loc[pair.localCandidateId].candidateType=='relay'?'relay':'direct';k.opt.onroute&&k.opt.onroute(k)}}).catch(function(){})};
+
+/* ---- laptop: device picker, keyboard ---- */
+CB.micC=function(){var c={echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1},id=localStorage.getItem('cb2_mic');if(id)c.deviceId={ideal:id};return c};
+CB.sinks=[];CB.setSink=function(el){var id=localStorage.getItem('cb2_spk');if(id&&el.setSinkId)el.setSinkId(id).catch(function(){})};
+CB.fillDev=function(onMic){var md=navigator.mediaDevices;if(!md||!md.enumerateDevices)return;md.enumerateDevices().then(function(ds){var ms=document.querySelector('#micsel'),ss=document.querySelector('#spksel');
+ function put(sel,kind,key,lab){sel.innerHTML='';ds.filter(function(d){return d.kind==kind}).forEach(function(d,i){var o=document.createElement('option');o.value=d.deviceId;o.textContent=d.label||(lab+' '+(i+1));sel.appendChild(o)});var v=localStorage.getItem(key);if(v)sel.value=v}
+ put(ms,'audioinput','cb2_mic','Microphone');var canSink='setSinkId' in HTMLMediaElement.prototype;ss.classList.toggle('hide',!canSink);document.querySelector('#spkl').classList.toggle('hide',!canSink);if(canSink)put(ss,'audiooutput','cb2_spk','Speakers');
+ ms.onchange=function(){localStorage.setItem('cb2_mic',ms.value);var old=CB.track;CB.track=null;onMic(old)};
+ ss.onchange=function(){localStorage.setItem('cb2_spk',ss.value);document.querySelectorAll('audio').forEach(CB.setSink)}}).catch(function(){})};
+CB.hasCam=function(f){var md=navigator.mediaDevices;if(!md||!md.enumerateDevices)return f(true);md.enumerateDevices().then(function(ds){f(ds.some(function(d){return d.kind=='videoinput'}))}).catch(function(){f(true)})};
+CB.keys=function(sp,m){document.addEventListener('keydown',function(e){var t=e.target&&e.target.tagName;if(t=='INPUT'||t=='SELECT'||t=='TEXTAREA'||e.repeat||e.ctrlKey||e.metaKey||e.altKey)return;if(e.code=='Space'){e.preventDefault();sp()}else if(e.key=='m'||e.key=='M')m()})};
 /* ---- screen awake, updates, offline cache ---- */
 CB.awake=function(){if('wakeLock' in navigator&&!document.hidden)navigator.wakeLock.request('screen').then(function(w){CB.wake=w}).catch(function(){})};
 CB.checkVersion=function(){fetch('version.json?'+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){if(!j||!j.v||j.v==CB.V)return;var k='cb2_up_'+j.v;if(sessionStorage.getItem(k))return;sessionStorage.setItem(k,'1');CB.onUpdate&&CB.onUpdate(j.v);
