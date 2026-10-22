@@ -20,7 +20,7 @@ S.isUp=function(){return this.up.ntfy||this.up.pj};
 S.openES=function(){var s=this;if(s.stopped)return;try{s.es&&s.es.close()}catch(e){}
  var es=new EventSource('https://ntfy.sh/'+s.topic(s.id)+'/sse?since=15s');s.es=es;s.esAt=Date.now();
  es.onopen=function(){if(s.es!=es)return;s.up.ntfy=true;s.onup&&s.onup('ntfy')};
- es.onmessage=function(e){try{s.got(JSON.parse(JSON.parse(e.data).message))}catch(x){}};
+ es.onmessage=function(e){try{unzip(JSON.parse(JSON.parse(e.data).message)).then(function(m){s.got(m)}).catch(function(){})}catch(x){}};
  es.onerror=function(){if(s.es!=es)return;s.up.ntfy=false;if(es.readyState==2)setTimeout(function(){if(s.es==es)s.openES()},2000)}};
 S.openWS=function(){var s=this;if(s.stopped||q.get('t')=='nopj')return;var o=s.ws;s.ws=null;try{o&&o.close()}catch(e){}
  var ws;try{ws=new WebSocket('wss://0.peerjs.com/peerjs?key=peerjs&id='+s.P+s.id+'&token='+CB.rnd(10)+'&version=1.5.4')}catch(e){return s.retryWS()}
@@ -33,8 +33,10 @@ S.openWS=function(){var s=this;if(s.stopped||q.get('t')=='nopj')return;var o=s.w
  clearInterval(s.hb);s.hb=setInterval(function(){if(s.ws&&s.ws.readyState==1)s.ws.send('{"type":"HEARTBEAT"}')},5000)};
 S.retryWS=function(){var s=this;if(s.stopped)return;clearTimeout(s.wst);s.wsTry=(s.wsTry||0)+1;s.wst=setTimeout(function(){s.openWS()},s.taken?900:Math.min(800*s.wsTry,6000))};
 S.revive=function(force){if(this.stopped)return;if(force||!this.es||this.es.readyState==2)this.openES();if(!this.ws||this.ws.readyState>1)this.openWS()};
-S.send=function(to,m,topic){m.mid=CB.rnd(8);m.f=this.id;m.tab=this.tab;m.t=Date.now();var b=JSON.stringify(m);
- fetch('https://ntfy.sh/'+(topic||this.topic(to)),{method:'POST',body:b}).catch(function(){});
+function zip(s){if(s.length<3000||!window.CompressionStream)return Promise.resolve(s);var cs=new Blob([s]).stream().pipeThrough(new CompressionStream('deflate-raw'));return new Response(cs).arrayBuffer().then(function(b){var u=new Uint8Array(b),x='';for(var i=0;i<u.length;i++)x+=String.fromCharCode(u[i]);return JSON.stringify({z:btoa(x)})}).catch(function(){return s})}
+function unzip(m){if(!m||!m.z)return Promise.resolve(m);var b=Uint8Array.from(atob(m.z),function(c){return c.charCodeAt(0)});return new Response(new Blob([b]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text().then(JSON.parse)}
+S.send=function(to,m,topic){m.mid=CB.rnd(8);m.f=this.id;m.tab=this.tab;m.t=Date.now();var b=JSON.stringify(m),url='https://ntfy.sh/'+(topic||this.topic(to));
+ zip(b).then(function(z){return fetch(url,{method:'POST',body:z})}).catch(function(){});
  if(!topic&&this.ws&&this.ws.readyState==1&&this.up.pj)try{this.ws.send(JSON.stringify({type:'OFFER',dst:this.P+to,payload:{cb:m}}))}catch(e){}};
 S.got=function(m){if(!m||!m.mid||this.seen.has(m.mid))return;this.seen.add(m.mid);if(m.f==this.id&&m.tab==this.tab)return;if(m.k=='offer'&&Date.now()-m.t>15000)return;this.on(m)};
 /* ---- one link to one other phone: a single WebRTC line with audio and a data channel ---- */
